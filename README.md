@@ -45,14 +45,3 @@ Issues you may see
 Notes and recommendations
 - The demo is a prototype: collect real mouth-crop data across multiple subjects and lighting conditions for best results.
 - Use augmentation (flips, brightness/color jitter) and class balancing when training on small datasets.
-
-Want it polished for a TA demo?
-- I can add a short `docs/demo.gif`, a small checkpoint for quick verification, and a brief Troubleshooting section. Ask and I will add them.
-
-Files added in this prototype
-- `requirements.txt` — Python dependencies
-- `main.py` — simple entrypoint to launch demo or collector
-- `src/` — demo, model, utils, dataset, training and evaluation scripts
-- `scripts/` — synthetic-data generator and training stub
-
-If anything is unclear or you'd like the README to present different commands or wording, tell me which tone or phrasing you prefer and I'll update it.
