@@ -1,0 +1,21 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Data and models
+data/
+checkpoints/
+checkpoints_smoke/
+models/
+
+# Editor
+.vscode/
+.idea/
+*.sublime-workspace
+
+# macOS
+.DS_Store
