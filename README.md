@@ -1,9 +1,8 @@
 # Facial-Operator demo (prototype)
 
-This is a working prototype that reads webcam frames, detects facial landmarks and hands, and attempts to
+This is a prototype that reads webcam frames, detects facial landmarks and hands, and attempts to
 recognize simple operator expressions from facial gestures while using hand-mounted digit detection to build
-tiny arithmetic expressions (for example: "3 + 2 = 5"). It's intended as a demo of the full data
-pipeline — collection, training, inference — rather than a finished product.
+tiny arithmetic expressions (for example: "3 + 2 = 5").
 
 What you'll find here
 - Live demo: `python main.py demo` — runs MediaPipe Face Mesh + Hands, shows a mouth preview, predicted operator (rule-based), and the running arithmetic result.
@@ -34,14 +33,4 @@ python main.py collect --out data/collected --classes neutral,frown,smile,tongue
 python main.py demo --smoother 7
 ```
 
-Operator labels and mapping
-- The prototype uses class names (folder names) as labels when training. For the demo, numeric model outputs map to operator symbols by default as `['+', '−', 'x', '÷']`.
-- When you collect real data, choose class folder names that make sense for your mapping (e.g. `smile` -> `+`, `frown` -> `−`, `tongue` -> `x`, `open` -> `÷`). We can make this mapping configurable if needed.
 
-Issues you may see
-- On macOS you may see a Continuity Camera warning about AVCaptureDeviceTypeExternal; it's harmless for running the script.
-- MediaPipe / TensorFlow prints some startup logs; these are informational. If you want quieter output I can further suppress them.
-
-Notes and recommendations
-- The demo is a prototype: collect real mouth-crop data across multiple subjects and lighting conditions for best results.
-- Use augmentation (flips, brightness/color jitter) and class balancing when training on small datasets.
