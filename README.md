@@ -32,5 +32,3 @@ python main.py collect --out data/collected --classes neutral,frown,smile,tongue
 ```bash
 python main.py demo --smoother 7
 ```
-
-
