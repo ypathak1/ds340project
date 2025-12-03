@@ -7,7 +7,7 @@ __pycache__/
 *.egg-info/
 
 # Data and models
-data/
+fane_data/
 checkpoints/
 checkpoints_smoke/
 models/
