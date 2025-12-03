@@ -38,7 +38,8 @@ def run_collector(output_dir='data/collected', classes=None, sample_prefix=None)
         print('Cannot open webcam')
         return
 
-    mp_face = mp.solutions.face_mesh
+    # Pylance lacks stubs for mediapipe.solutions; suppress false positives
+    mp_face = mp.solutions.face_mesh  # type: ignore[attr-defined]
 
     print('Data collector started.')
     print('Press keys 1..{} to save sample for classes:'.format(len(classes)))

@@ -53,9 +53,10 @@ def run_demo(device='cpu', model_checkpoint=None, smoother_win=7):
         print('mediapipe is not installed. Install dependencies from requirements.txt')
         return
 
-    mp_face = mp.solutions.face_mesh
-    mp_hands = mp.solutions.hands
-    mp_drawing = mp.solutions.drawing_utils
+    # Pylance lacks stubs for mediapipe.solutions; suppress false positives
+    mp_face = mp.solutions.face_mesh  # type: ignore[attr-defined]
+    mp_hands = mp.solutions.hands  # type: ignore[attr-defined]
+    mp_drawing = mp.solutions.drawing_utils  # type: ignore[attr-defined]
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
