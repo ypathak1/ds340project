@@ -33,8 +33,7 @@ def mouth_open_ratio(landmarks, image_size=None):
 def rule_based_operator(landmarks):
     """Return operator label based on simple geometric heuristics.
 
-    Labels: '+': neutral, '-': frown (small open ratio but downturned?),
-    'x': tongue-out (we detect large vertical protrusion near center), '/': smile (wide width)
+    Labels (ASCII): '+': neutral, '-': frown, 'x': tongue/open, '/': smile
     This is a very approximate heuristic for baseline comparison.
     """
     ratio = mouth_open_ratio(landmarks)
@@ -53,5 +52,5 @@ def rule_based_operator(landmarks):
         mouth_width = 0.3
 
     if mouth_width > 0.45:
-        return '÷'  # smile/wide
-    return '−'  # frown/other
+        return '/'  # smile/wide (ASCII)
+    return '-'  # frown/other (ASCII)

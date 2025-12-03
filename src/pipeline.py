@@ -78,6 +78,7 @@ def run_demo(device='cpu', model_checkpoint=None, smoother_win=7):
         operand1 = None
         operator = None
         operand2 = None
+        last_result_str = ''  # keep showing last computed result until next expression
 
         while True:
             ret, frame = cap.read()
@@ -139,40 +140,40 @@ def run_demo(device='cpu', model_checkpoint=None, smoother_win=7):
                         operand2 = d
 
                 # compute if we have full expression
-                result_str = ''
                 if operand1 is not None and operator is not None and operand2 is not None:
                     res = None
                     if operator == '+':
                         res = operand1 + operand2
-                    elif operator == '−':
+                    elif operator == '-':
                         res = operand1 - operand2
                     elif operator == 'x':
                         res = operand1 * operand2
-                    elif operator == '÷':
+                    elif operator == '/':
                         res = operand1 / operand2 if operand2 != 0 else None
 
                     if res is not None:
-                        result_str = f'{operand1} {operator} {operand2} = {res}'
+                        last_result_str = f'{operand1} {operator} {operand2} = {res}'
                     else:
-                        result_str = f'{operand1} {operator} {operand2} = ?'
+                        last_result_str = f'{operand1} {operator} {operand2} = ?'
 
-                    # show result and reset
-                    cv2.putText(frame, result_str, (10, ph + 70), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 200, 255), 2)
+                    # reset operands to allow instant next expression while keeping last result visible
                     operand1 = None
                     operator = None
                     operand2 = None
 
-            else:
-                # if no complete expression, show partial state
-                state = ''
-                if operand1 is not None:
-                    state += str(operand1)
-                if operator is not None:
-                    state += f' {operator} '
-                if operand2 is not None:
-                    state += str(operand2)
-                if state:
-                    cv2.putText(frame, state, (10, ph + 70), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (200, 200, 200), 1)
+            # show partial state and last result
+            state = ''
+            if operand1 is not None:
+                state += str(operand1)
+            if operator is not None:
+                state += f' {operator} '
+            if operand2 is not None:
+                state += str(operand2)
+
+            if state:
+                cv2.putText(frame, state, (10, ph + 70), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (200, 200, 200), 1)
+            if last_result_str:
+                cv2.putText(frame, last_result_str, (10, ph + 110), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 200, 255), 2)
 
             # (hand detection was handled earlier)
 
