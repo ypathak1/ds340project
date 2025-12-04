@@ -19,3 +19,6 @@ models/
 
 # macOS
 .DS_Store
+data/fane_split/
+data/fane_split_small/
+data/*/
