@@ -1,8 +1,7 @@
-torch>=1.13.0
-torchvision>=0.14.0
 mediapipe>=0.10.0
-opencv-python
-numpy
-scikit-learn
-matplotlib
-timm
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+tensorflow-macos>=2.13.0
+tensorflow-metal>=1.0.0
+fer>=22.5.0
+keras>=2.13.0

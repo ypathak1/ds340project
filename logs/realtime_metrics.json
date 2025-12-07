@@ -1,0 +1,30 @@
+{
+  "fps": 6.606679728519943,
+  "frame_time": 142.01417764027914,
+  "mode": "GAME MODE",
+  "recent_votes": {
+    "FER": 98.0,
+    "Custom": 0.0,
+    "MediaPipe": 100.0,
+    "Ensemble": 0.0
+  },
+  "vote_agreement": 66.83673469387755,
+  "current_emotion": "happy",
+  "current_operation": "*",
+  "current_equation": "4 * 1 = 4",
+  "game_score": 1747,
+  "game_lives": 2,
+  "game_target": 13,
+  "game_combo": 3,
+  "game_level": 2,
+  "games_played": 0,
+  "total_score": 0,
+  "success_rate": 0,
+  "avg_solve_time": 0,
+  "training_samples": {
+    "happy": 0,
+    "sad": 0,
+    "neutral": 0,
+    "angry": 0
+  }
+}
