@@ -1,6 +1,5 @@
 # GESTURE + EMOTION CALCULATOR
 
-```
    # Facial Operator — demo and data collector
 
    This repo contains a compact demo that uses MediaPipe for face and hand landmarks and a small, easy-to-read pipeline to recognize simple expressions and finger counts. The demo is intended to be understandable and easy to run on a laptop camera.
