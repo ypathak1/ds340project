@@ -473,8 +473,8 @@ def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
     }
     
     try:
-        with open('logs/realtime_metrics.json', 'w') as f:
-            json.dump(metrics, f, indent=2)
+        with open('logs/realtime_metrics.json', 'a') as f:
+            f.write(json.dumps(metrics) + '\n')
     except:
         pass  # Don't crash if logging fails
 
