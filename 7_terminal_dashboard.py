@@ -42,7 +42,7 @@ def print_dashboard(metrics):
     
     # Header
     print(Colors.BOLD + Colors.CYAN + "=" * 70)
-    print(" " * 15 + "AI MATH CALCULATOR - LIVE DASHBOARD")
+    print(" " * 15 + "GESTURE CALCULATOR - LIVE DASHBOARD")
     print("=" * 70 + Colors.ENDC)
     print()
     

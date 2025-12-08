@@ -5,7 +5,7 @@ Trains YOUR personalized emotion recognition model
 
 import os
 import numpy as np
-from tensorflow.keras.utils import to_categorical
+from keras.utils import to_categorical
 from keras.layers import Input, Dense, Dropout, BatchNormalization
 from keras.models import Model
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau

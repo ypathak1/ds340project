@@ -32,7 +32,7 @@ except ImportError:
         FER = None  # Degrade gracefully if the package is missing
 
 print("=" * 70)
-print("AI MATH CALCULATOR - COMPLETE STACKING EDITION")
+print("GESTURE CALCULATOR - COMPLETE STACKING EDITION")
 print("=" * 70)
 print("\n🚀 ALL 4 MODELS STACKING TOGETHER:")
 print("  1. FER Pretrained (general emotions)")
@@ -288,8 +288,8 @@ print("\n🎮 CONTROLS:")
 print("  Q=Quit | H=Happy S=Sad N=Neutral A=Angry | T=Train")
 print("\n💡 Works NOW! Add samples to improve accuracy.\n")
 
-cv2.namedWindow('AI Calc - ALL MODELS STACKING', cv2.WINDOW_NORMAL)
-cv2.resizeWindow('AI Calc - ALL MODELS STACKING', 1400, 800)
+cv2.namedWindow('Gesture Calculator', cv2.WINDOW_NORMAL)
+cv2.resizeWindow('Gesture Calculator', 1400, 800)
 
 # State
 cur_left = None
@@ -416,7 +416,7 @@ while True:
     cv2.putText(frm, "All 4 models voting together!", (30,h-40),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,255), 2)
     
-    cv2.imshow('AI Calc - ALL MODELS STACKING', frm)
+    cv2.imshow('Gesture Calculator', frm)
     
     # KEYS
     key = cv2.waitKey(1) & 0xFF

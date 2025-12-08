@@ -33,7 +33,7 @@ except ImportError:
         FER = None
 
 print("=" * 70)
-print("AI MATH CALCULATOR - COMPLETE STACKING EDITION + GAME MODE")
+print("GESTURE CALCULATOR - COMPLETE STACKING EDITION + GAME MODE")
 print("=" * 70)
 print("\n🚀 ALL 4 MODELS STACKING TOGETHER:")
 print("  1. FER Pretrained (general emotions)")
@@ -56,6 +56,7 @@ challenge_start_time = 0
 consecutive_correct = 0
 difficulty_level = 1
 game_high_score = 0
+game_round = 0
 
 # Load high score if exists
 if os.path.exists("highscore.txt"):
@@ -68,12 +69,30 @@ if os.path.exists("highscore.txt"):
 
 # LOGGING SETUP
 os.makedirs("logs", exist_ok=True)
+LOG_FILE = "logs/realtime_metrics.json"
 
 # Metrics tracking
 vote_history = deque(maxlen=100)
 games_played_total = 0
 total_score_all_games = 0
 solve_times = []
+last_logged_solve_len = 0
+log_entries = []
+
+if os.path.exists(LOG_FILE):
+    try:
+        with open(LOG_FILE, 'r') as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                log_entries = data
+    except json.JSONDecodeError:
+        log_entries = []
+else:
+    try:
+        with open(LOG_FILE, 'w') as f:
+            json.dump(log_entries, f)
+    except:
+        pass
 
 # LOAD ALL MODELS
 print("[INFO] Loading ALL models (no if statements)...")
@@ -137,12 +156,27 @@ FER_MAPPING = {
     'surprise': 'happy', 'fear': 'sad', 'disgust': 'angry'
 }
 
-# GAME: VALID TARGETS
-VALID_TARGETS = {
-    'happy': list(range(0, 26)),      # 0*0 to 5*5 = 0-25
-    'sad': [0, 1, 2, 2.5, 3, 4, 5],   # Clean divisions only
-    'neutral': list(range(0, 11)),    # 0+0 to 5+5 = 0-10
-    'angry': list(range(-5, 6))       # 0-5 to 5-0 = -5 to 5
+# GAME: VALID TARGETS (two hands, 0-5)
+HAND_VALUES = list(range(6))
+
+def build_valid_targets():
+    targets = {'happy': set(), 'sad': set(), 'neutral': set(), 'angry': set()}
+    for a in HAND_VALUES:
+        for b in HAND_VALUES:
+            targets['happy'].add(a * b)
+            targets['neutral'].add(a + b)
+            targets['angry'].add(a - b)
+            if b != 0:
+                targets['sad'].add(round(a / b, 2))
+    return {k: sorted(list(v)) for k, v in targets.items()}
+
+VALID_TARGETS = build_valid_targets()
+
+EASY_TARGETS = {
+    'happy': [v for v in VALID_TARGETS['happy'] if v <= 12],
+    'neutral': [v for v in VALID_TARGETS['neutral'] if v <= 8],
+    'angry': [v for v in VALID_TARGETS['angry'] if -4 <= v <= 4],
+    'sad': [v for v in VALID_TARGETS['sad'] if v in {0, 1, 2, 2.5, 3, 4, 5}]
 }
 
 # MODEL 3: MediaPipe Landmark Emotion
@@ -329,23 +363,15 @@ def generate_challenge(difficulty):
     
     operation = random.choices(operations, weights=weights)[0]
     
-    # Pick valid target for that operation
     valid_targets = VALID_TARGETS[operation]
     
-    # For higher difficulty, prefer harder targets
     if difficulty == 1:
-        # Easy: avoid 0, avoid negatives, prefer small numbers
-        if operation == 'happy':
-            target = random.choice([4, 6, 8, 9, 10, 12, 15, 16, 20])
-        elif operation == 'neutral':
-            target = random.choice([3, 5, 6, 7, 8, 9])
-        elif operation == 'angry':
-            target = random.choice([1, 2, 3, 4])
-        else:  # sad
-            target = random.choice([1, 2, 5])
+        easy_pool = EASY_TARGETS.get(operation, [])
+        pool = easy_pool if easy_pool else valid_targets
     else:
-        # Medium/Hard: any valid target
-        target = random.choice(valid_targets)
+        pool = valid_targets
+    
+    target = random.choice(pool)
     
     return target, operation
 
@@ -386,12 +412,14 @@ def start_game():
     """Initialize new game"""
     global game_active, game_score, game_lives, consecutive_correct
     global game_target, game_operation, challenge_start_time, difficulty_level
+    global game_round
     
     game_active = True
     game_score = 0
     game_lives = 3
     consecutive_correct = 0
     difficulty_level = 1
+    game_round = 1
     
     # Generate first challenge
     game_target, game_operation = generate_challenge(difficulty_level)
@@ -404,7 +432,8 @@ def start_game():
 
 def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
     """Log real-time metrics to JSON file for dashboard"""
-    global vote_history, games_played_total, total_score_all_games, solve_times
+    global vote_history, games_played_total, total_score_all_games
+    global solve_times, last_logged_solve_len, log_entries
     
     # Track vote agreement
     if preds:
@@ -446,6 +475,11 @@ def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
         if solve_times:
             avg_solve_time = np.mean(solve_times)
     
+    new_solve_times = []
+    if len(solve_times) > last_logged_solve_len:
+        new_solve_times = solve_times[last_logged_solve_len:]
+        last_logged_solve_len = len(solve_times)
+    
     metrics = {
         'fps': fps,
         'frame_time': frame_time,
@@ -460,10 +494,15 @@ def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
         'game_target': game_target if game_active else 0,
         'game_combo': consecutive_correct if game_active else 0,
         'game_level': difficulty_level if game_active else 1,
+        'difficulty_level': difficulty_level,
+        'round': game_round if game_active else 0,
         'games_played': games_played_total,
         'total_score': total_score_all_games,
         'success_rate': success_rate,
         'avg_solve_time': avg_solve_time,
+        'solve_times': new_solve_times,
+        'vote_history': list(preds.values()) if preds else [],
+        'timestamp': time.time(),
         'training_samples': {
             'happy': len(training_data['happy']),
             'sad': len(training_data['sad']),
@@ -472,9 +511,11 @@ def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
         }
     }
     
+    log_entries.append(metrics)
+    
     try:
-        with open('logs/realtime_metrics.json', 'a') as f:
-            f.write(json.dumps(metrics) + '\n')
+        with open(LOG_FILE, 'w') as f:
+            json.dump(log_entries, f, indent=2)
     except:
         pass  # Don't crash if logging fails
 
@@ -579,8 +620,8 @@ print("  Q=Quit | H=Happy S=Sad N=Neutral A=Angry | T=Train")
 print("  G=Start Game Mode | ESC=Exit Game")
 print("\nWorks NOW! Add samples to improve accuracy.\n")
 
-cv2.namedWindow('AI Calc - ALL MODELS STACKING', cv2.WINDOW_NORMAL)
-cv2.resizeWindow('AI Calc - ALL MODELS STACKING', 1400, 800)
+cv2.namedWindow('Gesture Calculator', cv2.WINDOW_NORMAL)
+cv2.resizeWindow('Gesture Calculator', 1400, 800)
 
 # State
 cur_left = None
@@ -712,6 +753,7 @@ while True:
                     
                     # New challenge
                     time.sleep(0.5)  # Brief pause to see success
+                    game_round += 1
                     game_target, game_operation = generate_challenge(difficulty_level)
                     challenge_start_time = time.time()
             except:
@@ -726,6 +768,7 @@ while True:
             
             if game_lives > 0:
                 # Generate new challenge
+                game_round += 1
                 game_target, game_operation = generate_challenge(difficulty_level)
                 challenge_start_time = time.time()
             else:
@@ -797,7 +840,7 @@ while True:
     avg_frame_time = np.mean(frame_times) if frame_times else 0
     log_metrics(current_fps, avg_frame_time, cur_emo, cur_op, eq, preds)
     
-    cv2.imshow('AI Calc - ALL MODELS STACKING', frm)
+    cv2.imshow('Gesture Calculator', frm)
     
     # KEYS
     key = cv2.waitKey(1) & 0xFF
@@ -817,6 +860,7 @@ while True:
         if game_active:
             game_active = False
             game_lives = 0
+            game_round = 0
             print("\n[INFO] Exited game mode")
     
     # Live training (only in calculator mode)

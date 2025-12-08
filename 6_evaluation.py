@@ -440,7 +440,7 @@ print("\n[INFO] Generating evaluation report...")
 
 with open('results/evaluation_report.txt', 'w') as f:
     f.write("=" * 70 + "\n")
-    f.write("AI MATH CALCULATOR - EVALUATION REPORT\n")
+    f.write("GESTURE CALCULATOR - EVALUATION REPORT\n")
     f.write("=" * 70 + "\n\n")
     
     f.write("OVERALL RESULTS\n")
