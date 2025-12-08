@@ -26,15 +26,17 @@ for i in os.listdir():
     if i.startswith("emotion_") and i.endswith(".npy"):
         emotion_name = i.replace("emotion_", "").replace(".npy", "")
         print(f"  ✓ Found: {emotion_name}")
+        data = np.load(i)
+        current_size = data.shape[0]
         
         if not is_init:
             is_init = True
-            X = np.load(i)
-            size = X.shape[0]
-            y = np.array([emotion_name] * size).reshape(-1, 1)
+            X = data
+            size = current_size
+            y = np.array([emotion_name] * current_size).reshape(-1, 1)
         else:
-            X = np.concatenate((X, np.load(i)))
-            y = np.concatenate((y, np.array([emotion_name] * size).reshape(-1, 1)))
+            X = np.concatenate((X, data))
+            y = np.concatenate((y, np.array([emotion_name] * current_size).reshape(-1, 1)))
         
         label.append(emotion_name)
         dictionary[emotion_name] = c
