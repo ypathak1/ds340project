@@ -1,87 +1,80 @@
-"""
-STEP 6: COMPREHENSIVE MODEL EVALUATION
-Evaluates all models (FER, Custom, MediaPipe, Ensemble) with proper metrics
-Generates confusion matrices, accuracy reports, and performance comparisons
 
-"""
 
 import numpy as np
 import cv2
-import mediapipe as mp
-from keras.models import load_model
-from fer import FER
 import os
 from collections import Counter
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.metrics import precision_recall_fscore_support
+from matplotlib.patches import Rectangle
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import time
 
-print("=" * 70)
-print("COMPREHENSIVE MODEL EVALUATION")
-print("=" * 70)
-print("\nThis script evaluates:")
-print("  1. FER Pretrained Model")
-print("  2. Custom Trained Model")
-print("  3. MediaPipe Landmarks Model")
-print("  4. Ensemble (All 3 Combined)")
-print("\nMetrics calculated:")
-print("  - Accuracy")
-print("  - Precision, Recall, F1-Score per emotion")
-print("  - Confusion Matrices")
+print("=" * 80)
+print("DS340 GESTURE CALCULATOR - MODEL EVALUATION")
+print("=" * 80)
+print()
+
+print("This script evaluates:")
+print("  - Custom CNN (personalized model)")
+print("  - MediaPipe Face Mesh (landmark-based rules)")
+print("  - Ensemble (majority voting)")
+print()
+print("Metrics calculated:")
+print("  - Accuracy, Precision, Recall, F1-Score")
+print("  - Ensemble voting patterns and agreement")
 print("  - Inference Time")
 print()
 
-# Create results directory
-os.makedirs("results", exist_ok=True)
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 
-# SETUP MODELS
-print("[INFO] Loading models...")
-
-# FER
-fer_detector = None
+# Model imports
 try:
-    fer_detector = FER(mtcnn=False)
-    print("  ✓ FER loaded")
-except:
-    print("  ✗ FER not available")
-
-# Custom Model
-custom_model = None
-custom_labels = None
-if os.path.exists("custom_emotion_model.h5"):
-    try:
+    from keras.models import load_model
+    if os.path.exists("custom_emotion_model.h5"):
         custom_model = load_model("custom_emotion_model.h5")
-        custom_labels = np.load("custom_emotion_labels.npy")
-        print("  ✓ Custom model loaded")
-    except:
-        print("  ✗ Custom model failed to load")
-else:
-    print("  ✗ Custom model not found (run 3_train_emotions.py first)")
+        custom_labels = np.load("custom_emotion_labels.npy", allow_pickle=True)
+        print("[INFO] Custom model loaded successfully")
+    else:
+        custom_model = None
+        custom_labels = None
+        print("[WARNING] Custom model not found - run 3_train_emotions.py first")
+except ImportError:
+    custom_model = None
+    custom_labels = None
+    print("[WARNING] Keras not available")
 
-# MediaPipe
+# MediaPipe Face Mesh
+import mediapipe as mp
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     max_num_faces=1,
     refine_landmarks=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.7
 )
-print("  ✓ MediaPipe loaded")
-
-# Mappings
-FER_MAPPING = {
-    'happy': 'happy', 'sad': 'sad', 'neutral': 'neutral', 'angry': 'angry',
-    'surprise': 'happy', 'fear': 'sad', 'disgust': 'angry'
-}
+print("[INFO] MediaPipe Face Mesh loaded")
 
 EMOTIONS = ['happy', 'sad', 'neutral', 'angry']
+EMOTION_COLORS = {
+    'happy': '#FFD93D',
+    'sad': '#6BCB77',
+    'neutral': '#4D96FF',
+    'angry': '#FF6B6B'
+}
 
-# MEDIAPIPE EMOTION DETECTION
+# Create output directory
+os.makedirs('results', exist_ok=True)
+
+# =============================================================================
+# PREDICTION FUNCTIONS
+# =============================================================================
+
 def mediapipe_emotion_from_landmarks(face_landmarks):
-    """Detect emotion using MediaPipe face landmarks"""
+    """Rule-based emotion detection using facial geometry"""
     try:
+        # Key landmarks for emotion detection
         left_mouth = face_landmarks[61]
         right_mouth = face_landmarks[291]
         upper_lip = face_landmarks[13]
@@ -89,12 +82,14 @@ def mediapipe_emotion_from_landmarks(face_landmarks):
         left_brow = face_landmarks[70]
         right_brow = face_landmarks[300]
         nose = face_landmarks[168]
-        
+
+        # Calculate geometric features
         mouth_avg_y = (left_mouth.y + right_mouth.y) / 2
         lip_center_y = (upper_lip.y + lower_lip.y) / 2
         brow_avg_y = (left_brow.y + right_brow.y) / 2
         brow_distance = nose.y - brow_avg_y
-        
+
+        # Rule-based classification
         if mouth_avg_y < lip_center_y - 0.015:
             return 'happy'
         elif mouth_avg_y > lip_center_y + 0.01:
@@ -106,197 +101,173 @@ def mediapipe_emotion_from_landmarks(face_landmarks):
     except:
         return 'neutral'
 
-# LOAD TEST DATA
-print("\n[INFO] Loading test data...")
-
-test_data = {'happy': [], 'sad': [], 'neutral': [], 'angry': []}
-test_images = {'happy': [], 'sad': [], 'neutral': [], 'angry': []}
-
-# Load .npy files
-for emotion in EMOTIONS:
-    file_path = f"emotion_{emotion}.npy"
-    if os.path.exists(file_path):
-        data = np.load(file_path)
-        # Use last 20% as test set
-        test_size = int(len(data) * 0.2)
-        if test_size > 0:
-            test_data[emotion] = data[-test_size:]
-            print(f"  ✓ {emotion}: {len(test_data[emotion])} test samples")
-        else:
-            print(f"  ⚠ {emotion}: Not enough data")
-    else:
-        print(f"  ✗ {emotion}: No data file found")
-
-# Check if we have enough test data
-total_test = sum(len(v) for v in test_data.values())
-if total_test < 20:
-    print("\n[ERROR] Not enough test data!")
-    print("Please run 1_collect_emotions.py to collect at least 50 samples per emotion")
-    exit(1)
-
-print(f"\n[INFO] Total test samples: {total_test}")
-
-# EVALUATION FUNCTIONS
-
-def predict_fer(frame):
-    """Predict emotion using FER"""
-    if not fer_detector:
-        return None
-    try:
-        result = fer_detector.detect_emotions(frame)
-        if result:
-            emo_dict = result[0]['emotions']
-            fer_emo = max(emo_dict, key=emo_dict.get)
-            return FER_MAPPING.get(fer_emo, 'neutral')
-    except:
-        pass
-    return None
 
 def predict_custom(landmarks):
-    """Predict emotion using custom model"""
-    if not custom_model:
+    """Predict emotion using custom CNN model"""
+    if not custom_model or not landmarks:
         return None
     try:
-        feats = []
+        features = []
         for lm in landmarks:
-            feats.extend([lm.x, lm.y, lm.z])
-        feats = np.array(feats).reshape(1, -1)
-        probs = custom_model.predict(feats, verbose=0)[0]
+            features.extend([lm.x, lm.y, lm.z])
+        features = np.array(features).reshape(1, -1)
+        probs = custom_model.predict(features, verbose=0)[0]
         return custom_labels[np.argmax(probs)]
     except:
         return None
 
+
 def predict_mediapipe(landmarks):
-    """Predict emotion using MediaPipe landmarks"""
+    """Predict emotion using MediaPipe geometric rules"""
+    if not landmarks:
+        return None
     try:
         return mediapipe_emotion_from_landmarks(landmarks)
     except:
         return None
 
-def predict_ensemble(frame, landmarks):
-    """Predict emotion using ensemble voting"""
+
+def predict_ensemble(landmarks):
+    """Predict emotion using majority voting (Custom + MediaPipe only)"""
     votes = []
-    
-    # FER vote
-    fer_pred = predict_fer(frame)
-    if fer_pred:
-        votes.append(fer_pred)
-    
-    # Custom vote
+
     custom_pred = predict_custom(landmarks)
     if custom_pred:
         votes.append(custom_pred)
-    
-    # MediaPipe vote
+
     mp_pred = predict_mediapipe(landmarks)
     if mp_pred:
         votes.append(mp_pred)
-    
+
     if votes:
         return Counter(votes).most_common(1)[0][0]
     return 'neutral'
 
-# GENERATE TEST IMAGES FROM LANDMARKS
-print("\n[INFO] Generating test images from landmark data...")
-print("(This simulates what the webcam would capture)")
 
-def landmarks_to_image(landmark_data):
-    """Convert landmark data back to a simple visualization for FER"""
-    # Create blank image
-    img = np.ones((224, 224, 3), dtype=np.uint8) * 255
-    
-    # Draw face mesh points (simplified)
-    for i in range(0, len(landmark_data), 3):
-        x = int(landmark_data[i] * 224)
-        y = int(landmark_data[i+1] * 224)
-        if 0 <= x < 224 and 0 <= y < 224:
-            cv2.circle(img, (x, y), 1, (0, 0, 0), -1)
-    
-    return img
+# =============================================================================
+# LOAD TEST DATA
+# =============================================================================
 
+print("\n[INFO] Loading test data...")
+
+test_data = {emotion: [] for emotion in EMOTIONS}
+
+for emotion in EMOTIONS:
+    file_path = f"emotion_{emotion}.npy"
+    if os.path.exists(file_path):
+        data = np.load(file_path)
+        # Use 20% for testing
+        test_size = max(1, int(len(data) * 0.2))
+        test_data[emotion] = data[-test_size:]
+        print(f"  {emotion}: {len(test_data[emotion])} test samples")
+
+total_samples = sum(len(v) for v in test_data.values())
+if total_samples == 0:
+    print("\n[ERROR] No test data found!")
+    print("Please run 1_collect_emotions.py to collect emotion data first.")
+    exit(1)
+
+print(f"\nTotal test samples: {total_samples}")
+
+# =============================================================================
 # RUN EVALUATION
-print("\n" + "=" * 70)
-print("RUNNING EVALUATION")
-print("=" * 70)
+# =============================================================================
 
+print("\n" + "=" * 80)
+print("RUNNING EVALUATION")
+print("=" * 80)
+
+# Initialize result tracking
 results = {
-    'FER': {'y_true': [], 'y_pred': [], 'times': []},
     'Custom': {'y_true': [], 'y_pred': [], 'times': []},
     'MediaPipe': {'y_true': [], 'y_pred': [], 'times': []},
     'Ensemble': {'y_true': [], 'y_pred': [], 'times': []}
 }
 
-print("\nTesting each sample...")
+# Track predictions for voting timeline visualization
+voting_timeline = {
+    'Custom': [],
+    'MediaPipe': [],
+    'Ensemble': [],
+    'ground_truth': []
+}
+
+# Store sample landmarks for visualization
+sample_landmarks_by_emotion = {emotion: None for emotion in EMOTIONS}
+
+print("\nProcessing test samples...")
 sample_count = 0
 
 for emotion, landmarks_list in test_data.items():
     if len(landmarks_list) == 0:
         continue
-    
+
     print(f"\nEvaluating {emotion} samples...")
-    
-    for landmark_data in landmarks_list:
+
+    for idx, landmark_data in enumerate(landmarks_list):
         sample_count += 1
-        
-        # Convert to image for FER
-        img = landmarks_to_image(landmark_data)
-        
-        # Convert to landmark format for other models
+
+        # Convert to landmark objects
+        class Landmark:
+            def __init__(self, x, y, z):
+                self.x = x
+                self.y = y
+                self.z = z
+
         landmarks = []
         for i in range(0, len(landmark_data), 3):
-            class Landmark:
-                def __init__(self, x, y, z):
-                    self.x = x
-                    self.y = y
-                    self.z = z
             landmarks.append(Landmark(landmark_data[i], landmark_data[i+1], landmark_data[i+2]))
-        
-        # Test FER
-        if fer_detector:
-            start = time.time()
-            pred = predict_fer(img)
-            elapsed = time.time() - start
-            if pred:
-                results['FER']['y_true'].append(emotion)
-                results['FER']['y_pred'].append(pred)
-                results['FER']['times'].append(elapsed)
-        
-        # Test Custom
+
+        # Save first sample of each emotion for visualization
+        if sample_landmarks_by_emotion[emotion] is None:
+            sample_landmarks_by_emotion[emotion] = landmarks
+
+        # Evaluate Custom Model
+        custom_pred = None
         if custom_model:
             start = time.time()
-            pred = predict_custom(landmarks)
+            custom_pred = predict_custom(landmarks)
             elapsed = time.time() - start
-            if pred:
+            if custom_pred:
                 results['Custom']['y_true'].append(emotion)
-                results['Custom']['y_pred'].append(pred)
+                results['Custom']['y_pred'].append(custom_pred)
                 results['Custom']['times'].append(elapsed)
-        
-        # Test MediaPipe
+
+        # Evaluate MediaPipe
         start = time.time()
-        pred = predict_mediapipe(landmarks)
+        mp_pred = predict_mediapipe(landmarks)
         elapsed = time.time() - start
-        if pred:
+        if mp_pred:
             results['MediaPipe']['y_true'].append(emotion)
-            results['MediaPipe']['y_pred'].append(pred)
+            results['MediaPipe']['y_pred'].append(mp_pred)
             results['MediaPipe']['times'].append(elapsed)
-        
-        # Test Ensemble
+
+        # Evaluate Ensemble
         start = time.time()
-        pred = predict_ensemble(img, landmarks)
+        ensemble_pred = predict_ensemble(landmarks)
         elapsed = time.time() - start
         results['Ensemble']['y_true'].append(emotion)
-        results['Ensemble']['y_pred'].append(pred)
+        results['Ensemble']['y_pred'].append(ensemble_pred)
         results['Ensemble']['times'].append(elapsed)
-        
+
+        # Track ALL samples for agreement (not just first 100)
+        voting_timeline['Custom'].append(custom_pred if custom_pred else 'none')
+        voting_timeline['MediaPipe'].append(mp_pred if mp_pred else 'none')
+        voting_timeline['Ensemble'].append(ensemble_pred)
+        voting_timeline['ground_truth'].append(emotion)
+
         if sample_count % 10 == 0:
             print(f"  Processed {sample_count} samples...")
 
-print(f"\n✓ Evaluation complete: {sample_count} samples tested")
+print(f"\nEvaluation complete: {sample_count} samples processed")
 
+# =============================================================================
 # CALCULATE METRICS
-print("\n" + "=" * 70)
+# =============================================================================
+
+print("\n" + "=" * 80)
 print("CALCULATING METRICS")
-print("=" * 70)
+print("=" * 80)
 
 metrics_summary = {}
 
@@ -304,24 +275,24 @@ for model_name, data in results.items():
     if len(data['y_pred']) == 0:
         print(f"\n{model_name}: No predictions available")
         continue
-    
+
     y_true = data['y_true']
     y_pred = data['y_pred']
-    
-    # Calculate metrics
+
+    # Calculate overall metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, support = precision_recall_fscore_support(
         y_true, y_pred, labels=EMOTIONS, average='weighted', zero_division=0
     )
-    
+
     # Per-class metrics
     precision_per_class, recall_per_class, f1_per_class, _ = precision_recall_fscore_support(
         y_true, y_pred, labels=EMOTIONS, average=None, zero_division=0
     )
-    
+
     # Inference time
     avg_time = np.mean(data['times']) if data['times'] else 0
-    
+
     metrics_summary[model_name] = {
         'accuracy': accuracy,
         'precision': precision,
@@ -330,222 +301,374 @@ for model_name, data in results.items():
         'precision_per_class': precision_per_class,
         'recall_per_class': recall_per_class,
         'f1_per_class': f1_per_class,
-        'avg_time': avg_time,
-        'confusion_matrix': confusion_matrix(y_true, y_pred, labels=EMOTIONS)
+        'avg_time': avg_time
     }
 
-# GENERATE VISUALIZATIONS
-print("\n[INFO] Generating visualizations...")
-
-# Set style
-plt.style.use('seaborn-v0_8-darkgrid')
-sns.set_palette("husl")
-
-# 1. Confusion Matrices
+# Print summary
+print("\nModel Performance Summary:")
+print("-" * 80)
+print(f"{'Model':<15} {'Accuracy':<12} {'Precision':<12} {'Recall':<12} {'F1-Score':<12}")
+print("-" * 80)
 for model_name, metrics in metrics_summary.items():
-    plt.figure(figsize=(8, 6))
-    cm = metrics['confusion_matrix']
-    
-    # Normalize to percentages
-    cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
-    
-    sns.heatmap(cm_percent, annot=True, fmt='.1f', cmap='Blues',
-                xticklabels=EMOTIONS, yticklabels=EMOTIONS,
-                cbar_kws={'label': 'Percentage (%)'})
-    
-    plt.title(f'Confusion Matrix - {model_name}\nAccuracy: {metrics["accuracy"]*100:.1f}%',
-              fontsize=14, fontweight='bold')
-    plt.ylabel('True Emotion', fontsize=12)
-    plt.xlabel('Predicted Emotion', fontsize=12)
-    plt.tight_layout()
-    
-    filename = f'results/confusion_matrix_{model_name.lower()}.png'
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved {filename}")
+    print(f"{model_name:<15} "
+          f"{metrics['accuracy']*100:>10.2f}% "
+          f"{metrics['precision']*100:>10.2f}% "
+          f"{metrics['recall']*100:>10.2f}% "
+          f"{metrics['f1']*100:>10.2f}%")
+print("-" * 80)
 
-# 2. Model Comparison - Accuracy
-plt.figure(figsize=(10, 6))
-models = list(metrics_summary.keys())
-accuracies = [metrics_summary[m]['accuracy'] * 100 for m in models]
+# =============================================================================
+# VISUALIZATION 1: VOTING TIMELINE (FIRST 100 SAMPLES ONLY)
+# =============================================================================
 
-bars = plt.bar(models, accuracies, color=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'])
-plt.ylabel('Accuracy (%)', fontsize=12)
-plt.xlabel('Model', fontsize=12)
-plt.title('Model Accuracy Comparison', fontsize=14, fontweight='bold')
-plt.ylim([0, 100])
+print("\n[INFO] Generating visualizations...")
+print("  [1/3] Creating Voting Timeline...")
 
-# Add value labels on bars
-for bar in bars:
-    height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2., height,
-             f'{height:.1f}%', ha='center', va='bottom', fontsize=11, fontweight='bold')
+plt.style.use('seaborn-v0_8-darkgrid')
+
+fig, ax = plt.subplots(figsize=(16, 8))
+
+# Map emotions to y-positions
+emotion_to_y = {emotion: i for i, emotion in enumerate(EMOTIONS)}
+emotion_to_y['none'] = -1
+
+# Use ONLY first 100 for timeline clarity
+timeline_len = min(100, len(voting_timeline['ground_truth']))
+x_vals = list(range(timeline_len))
+
+# Plot each model's predictions (first 100)
+models_to_plot = ['Custom', 'MediaPipe']
+model_colors = ['#4ECDC4', '#45B7D1']
+model_markers = ['s', '^']
+
+for model_idx, model_name in enumerate(models_to_plot):
+    y_vals = [emotion_to_y[voting_timeline[model_name][i]] for i in range(timeline_len)]
+    ax.scatter(x_vals, y_vals,
+              c=model_colors[model_idx],
+              marker=model_markers[model_idx],
+              s=30,
+              alpha=0.6,
+              label=model_name,
+              zorder=3)
+
+# Plot ensemble decision
+ensemble_y = [emotion_to_y[voting_timeline['Ensemble'][i]] for i in range(timeline_len)]
+ax.scatter(x_vals, ensemble_y,
+          c='#96CEB4',
+          marker='*',
+          s=120,
+          alpha=0.9,
+          label='Ensemble Decision',
+          edgecolors='black',
+          linewidths=0.5,
+          zorder=4)
+
+# Background colors for ground truth
+for i in range(timeline_len):
+    true_emotion = voting_timeline['ground_truth'][i]
+    rect = Rectangle((i-0.5, -1.5), 1, len(EMOTIONS)+1.5,
+                     facecolor=EMOTION_COLORS[true_emotion],
+                     alpha=0.1,
+                     zorder=1)
+    ax.add_patch(rect)
+
+ax.set_yticks(list(range(len(EMOTIONS))))
+ax.set_yticklabels(EMOTIONS)
+ax.set_xlabel('Sample Number', fontsize=13, fontweight='bold')
+ax.set_ylabel('Predicted Emotion', fontsize=13, fontweight='bold')
+ax.set_title('Ensemble Voting Timeline (First 100 Samples)\n(Background color indicates ground truth)',
+            fontsize=16, fontweight='bold', pad=20)
+ax.legend(loc='upper right', fontsize=11, framealpha=0.9)
+ax.grid(True, alpha=0.3, axis='x')
+ax.set_ylim(-0.5, len(EMOTIONS)-0.5)
 
 plt.tight_layout()
-plt.savefig('results/model_comparison_accuracy.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/figure1_voting_timeline.png', dpi=300, bbox_inches='tight')
 plt.close()
-print("  ✓ Saved results/model_comparison_accuracy.png")
+print("    Saved: results/figure1_voting_timeline.png")
 
-# 3. Per-Emotion Performance (Ensemble)
+# =============================================================================
+# VISUALIZATION 2: MODEL AGREEMENT (ALL DATA)
+# =============================================================================
+
+print("  [2/3] Creating Model Agreement Analysis...")
+
+# Calculate agreement using ALL samples (not just first 100)
+total_samples = len(voting_timeline['ground_truth'])
+agreement_counts = {'All Agree': 0, '2 Agree': 0, 'All Disagree': 0}
+agreement_by_emotion = {emotion: {'All Agree': 0, '2 Agree': 0, 'All Disagree': 0, 'Total': 0}
+                       for emotion in EMOTIONS}
+
+for i in range(total_samples):
+    true_emo = voting_timeline['ground_truth'][i]
+    predictions = [
+        voting_timeline['Custom'][i],
+        voting_timeline['MediaPipe'][i]
+    ]
+
+    # Remove 'none' predictions
+    valid_preds = [p for p in predictions if p != 'none']
+
+    if len(valid_preds) >= 2:
+        unique_preds = len(set(valid_preds))
+
+        if unique_preds == 1:
+            agreement_counts['All Agree'] += 1
+            agreement_by_emotion[true_emo]['All Agree'] += 1
+        else:
+            agreement_counts['2 Agree'] += 1  # They disagree but both voted
+            agreement_by_emotion[true_emo]['2 Agree'] += 1
+
+        agreement_by_emotion[true_emo]['Total'] += 1
+
+# Create figure
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+# Left: Overall agreement pie chart
+colors_pie = ['#96CEB4', '#FFD93D']
+labels_pie = ['Both Agree', 'Disagree']
+values_pie = [agreement_counts['All Agree'], agreement_counts['2 Agree']]
+explode = (0.1, 0)
+
+wedges, texts, autotexts = ax1.pie(
+    values_pie,
+    labels=labels_pie,
+    autopct='%1.1f%%',
+    colors=colors_pie,
+    explode=explode,
+    shadow=True,
+    startangle=90
+)
+for autotext in autotexts:
+    autotext.set_color('white')
+    autotext.set_fontsize(12)
+    autotext.set_fontweight('bold')
+ax1.set_title('Overall Model Agreement\n(Custom + MediaPipe)', fontsize=14, fontweight='bold', pad=20)
+
+# Right: Agreement breakdown by emotion (ALL emotions with data)
+emotions_present = [e for e in EMOTIONS if agreement_by_emotion[e]['Total'] > 0]
+x_pos = np.arange(len(emotions_present))
+width = 0.35
+
+agree_vals = []
+disagree_vals = []
+
+for emotion in emotions_present:
+    total = agreement_by_emotion[emotion]['Total']
+    if total > 0:
+        agree_vals.append(agreement_by_emotion[emotion]['All Agree'] / total * 100)
+        disagree_vals.append(agreement_by_emotion[emotion]['2 Agree'] / total * 100)
+
+bars1 = ax2.bar(x_pos - width/2, agree_vals, width, label='Both Agree', color='#96CEB4')
+bars2 = ax2.bar(x_pos + width/2, disagree_vals, width, label='Disagree', color='#FFD93D')
+
+ax2.set_ylabel('Percentage (%)', fontsize=12, fontweight='bold')
+ax2.set_xlabel('Ground Truth Emotion', fontsize=12, fontweight='bold')
+ax2.set_title('Model Agreement by Emotion\n(All Test Data)', fontsize=14, fontweight='bold', pad=20)
+ax2.set_xticks(x_pos)
+ax2.set_xticklabels(emotions_present)
+ax2.legend()
+ax2.set_ylim(0, 100)
+ax2.grid(True, alpha=0.3, axis='y')
+
+plt.tight_layout()
+plt.savefig('results/figure2_model_agreement.png', dpi=300, bbox_inches='tight')
+plt.close()
+print("    Saved: results/figure2_model_agreement.png")
+
+# =============================================================================
+# VISUALIZATION 3: MODEL COMPARISON
+# =============================================================================
+
+print("  [3/3] Creating Model Comparison...")
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+# Left: Overall accuracy comparison
+models = []
+accuracies = []
+colors_bars = ['#4ECDC4', '#95E1D3', '#2C3E50']
+
+for model_name in ['Custom', 'MediaPipe', 'Ensemble']:
+    if model_name in metrics_summary:
+        models.append(model_name)
+        accuracies.append(metrics_summary[model_name]['accuracy'] * 100)
+
+bars = ax1.bar(models, accuracies, color=colors_bars[:len(models)],
+               edgecolor='black', linewidth=1.5, alpha=0.8)
+ax1.set_ylabel('Accuracy (%)', fontsize=13, fontweight='bold')
+ax1.set_title('Overall Model Accuracy', fontsize=14, fontweight='bold', pad=15)
+ax1.set_ylim(0, 100)
+ax1.grid(axis='y', alpha=0.3, linestyle='--')
+ax1.axhline(y=25, color='red', linestyle=':', alpha=0.5, linewidth=1, label='Random (25%)')
+
+# Add value labels
+for bar in bars:
+    height = bar.get_height()
+    ax1.text(bar.get_x() + bar.get_width()/2., height + 2,
+            f'{height:.1f}%', ha='center', va='bottom',
+            fontweight='bold', fontsize=11)
+
+ax1.legend()
+
+# Right: Per-class accuracy for Ensemble
 if 'Ensemble' in metrics_summary:
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    x = np.arange(len(EMOTIONS))
-    width = 0.25
-    
-    ensemble_metrics = metrics_summary['Ensemble']
-    
-    bars1 = ax.bar(x - width, ensemble_metrics['precision_per_class'] * 100, width, 
-                   label='Precision', color='#FF6B6B')
-    bars2 = ax.bar(x, ensemble_metrics['recall_per_class'] * 100, width,
-                   label='Recall', color='#4ECDC4')
-    bars3 = ax.bar(x + width, ensemble_metrics['f1_per_class'] * 100, width,
-                   label='F1-Score', color='#45B7D1')
-    
-    ax.set_xlabel('Emotion', fontsize=12)
-    ax.set_ylabel('Score (%)', fontsize=12)
-    ax.set_title('Ensemble Model - Per-Emotion Performance', fontsize=14, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(EMOTIONS)
-    ax.legend()
-    ax.set_ylim([0, 100])
-    
-    plt.tight_layout()
-    plt.savefig('results/per_emotion_performance.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print("  ✓ Saved results/per_emotion_performance.png")
+    ensemble_data = results['Ensemble']
+    y_true = np.array(ensemble_data['y_true'])
+    y_pred = np.array(ensemble_data['y_pred'])
 
-# 4. Inference Time Comparison
-plt.figure(figsize=(10, 6))
-models = list(metrics_summary.keys())
-times = [metrics_summary[m]['avg_time'] * 1000 for m in models]  # Convert to ms
+    per_class_acc = []
+    for emotion in EMOTIONS:
+        mask = y_true == emotion
+        if mask.sum() > 0:
+            class_acc = (y_pred[mask] == emotion).sum() / mask.sum() * 100
+            per_class_acc.append(class_acc)
+        else:
+            per_class_acc.append(0)
 
-bars = plt.bar(models, times, color=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'])
-plt.ylabel('Inference Time (ms)', fontsize=12)
-plt.xlabel('Model', fontsize=12)
-plt.title('Average Inference Time Comparison', fontsize=14, fontweight='bold')
+    emotion_colors_list = ['#FFD93D', '#6BCB77', '#4D96FF', '#FF6B6B']
+    bars2 = ax2.bar(EMOTIONS, per_class_acc, color=emotion_colors_list,
+                   edgecolor='black', linewidth=1.5, alpha=0.8)
+    ax2.set_ylabel('Accuracy (%)', fontsize=13, fontweight='bold')
+    ax2.set_xlabel('Emotion Class', fontsize=13, fontweight='bold')
+    ax2.set_title('Ensemble Per-Class Accuracy', fontsize=14, fontweight='bold', pad=15)
+    ax2.set_ylim(0, 100)
+    ax2.grid(axis='y', alpha=0.3, linestyle='--')
 
-for bar in bars:
-    height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2., height,
-             f'{height:.1f}ms', ha='center', va='bottom', fontsize=11)
+    # Add value labels
+    for bar in bars2:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height + 2,
+                f'{height:.1f}%', ha='center', va='bottom',
+                fontweight='bold', fontsize=11)
 
+plt.suptitle('Model Performance Comparison',
+            fontsize=16, fontweight='bold', y=1.02)
 plt.tight_layout()
-plt.savefig('results/inference_time_comparison.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/figure3_model_comparison.png', dpi=300, bbox_inches='tight')
 plt.close()
-print("  ✓ Saved results/inference_time_comparison.png")
+print("    Saved: results/figure3_model_comparison.png")
 
+# =============================================================================
 # GENERATE TEXT REPORT
+# =============================================================================
+
 print("\n[INFO] Generating evaluation report...")
 
 with open('results/evaluation_report.txt', 'w') as f:
-    f.write("=" * 70 + "\n")
+    f.write("=" * 80 + "\n")
     f.write("GESTURE CALCULATOR - EVALUATION REPORT\n")
-    f.write("=" * 70 + "\n\n")
-    
+    f.write("=" * 80 + "\n\n")
+
     f.write("OVERALL RESULTS\n")
-    f.write("-" * 70 + "\n\n")
-    
-    # Summary table
+    f.write("-" * 80 + "\n\n")
+
     f.write(f"{'Model':<15} {'Accuracy':<12} {'Precision':<12} {'Recall':<12} {'F1-Score':<12}\n")
-    f.write("-" * 70 + "\n")
-    
+    f.write("-" * 80 + "\n")
+
     for model_name, metrics in metrics_summary.items():
         f.write(f"{model_name:<15} "
                 f"{metrics['accuracy']*100:>10.2f}%  "
                 f"{metrics['precision']*100:>10.2f}%  "
                 f"{metrics['recall']*100:>10.2f}%  "
                 f"{metrics['f1']*100:>10.2f}%\n")
-    
-    f.write("\n" + "=" * 70 + "\n\n")
-    
+
+    f.write("\n" + "=" * 80 + "\n\n")
+
     # Per-emotion breakdown for Ensemble
     if 'Ensemble' in metrics_summary:
         f.write("ENSEMBLE MODEL - PER-EMOTION BREAKDOWN\n")
-        f.write("-" * 70 + "\n\n")
-        
+        f.write("-" * 80 + "\n\n")
+
         f.write(f"{'Emotion':<12} {'Precision':<12} {'Recall':<12} {'F1-Score':<12}\n")
-        f.write("-" * 70 + "\n")
-        
+        f.write("-" * 80 + "\n")
+
         ensemble = metrics_summary['Ensemble']
         for i, emotion in enumerate(EMOTIONS):
             f.write(f"{emotion.capitalize():<12} "
                     f"{ensemble['precision_per_class'][i]*100:>10.2f}%  "
                     f"{ensemble['recall_per_class'][i]*100:>10.2f}%  "
                     f"{ensemble['f1_per_class'][i]*100:>10.2f}%\n")
-    
-    f.write("\n" + "=" * 70 + "\n\n")
-    
+
+    f.write("\n" + "=" * 80 + "\n\n")
+
+    # Model agreement statistics
+    f.write("MODEL AGREEMENT STATISTICS\n")
+    f.write("-" * 80 + "\n\n")
+
+    total_agree = sum(agreement_counts.values())
+    for category, count in agreement_counts.items():
+        percentage = (count / total_agree * 100) if total_agree > 0 else 0
+        f.write(f"{category:<20} {count:>5} samples ({percentage:>5.1f}%)\n")
+
+    f.write("\n" + "=" * 80 + "\n\n")
+
     # Performance metrics
     f.write("PERFORMANCE METRICS\n")
-    f.write("-" * 70 + "\n\n")
-    
+    f.write("-" * 80 + "\n\n")
+
     f.write(f"{'Model':<15} {'Avg Inference Time':<20}\n")
-    f.write("-" * 70 + "\n")
-    
+    f.write("-" * 80 + "\n")
+
     for model_name, metrics in metrics_summary.items():
         f.write(f"{model_name:<15} {metrics['avg_time']*1000:>18.2f} ms\n")
-    
-    f.write("\n" + "=" * 70 + "\n\n")
-    
+
+    f.write("\n" + "=" * 80 + "\n\n")
+
     # Key findings
     f.write("KEY FINDINGS\n")
-    f.write("-" * 70 + "\n\n")
-    
+    f.write("-" * 80 + "\n\n")
+
     if 'Ensemble' in metrics_summary:
         ensemble_acc = metrics_summary['Ensemble']['accuracy'] * 100
-        
+
         # Find best single model
         single_models = {k: v for k, v in metrics_summary.items() if k != 'Ensemble'}
         if single_models:
             best_single = max(single_models.items(), key=lambda x: x[1]['accuracy'])
             best_single_acc = best_single[1]['accuracy'] * 100
             improvement = ensemble_acc - best_single_acc
-            
+
             f.write(f"1. Ensemble achieves {ensemble_acc:.2f}% accuracy\n")
             f.write(f"2. Best single model: {best_single[0]} at {best_single_acc:.2f}%\n")
-            f.write(f"3. Ensemble improvement: +{improvement:.2f}%\n")
-            
+            f.write(f"3. Ensemble improvement: {improvement:+.2f}%\n")
+
+            # Agreement statistics
+            all_agree_pct = (agreement_counts['All Agree'] / total_agree * 100) if total_agree > 0 else 0
+            f.write(f"4. Models agree {all_agree_pct:.1f}% of the time\n")
+
             if improvement > 0:
-                f.write(f"4. ✓ Ensemble approach is EFFECTIVE\n")
-            
-            # Total inference time
-            total_time = sum(m['avg_time'] for m in metrics_summary.values() if m != metrics_summary['Ensemble'])
-            f.write(f"5. Combined inference time: {total_time*1000:.2f}ms (still real-time!)\n")
-    
-    f.write("\n" + "=" * 70 + "\n")
+                f.write("5. Ensemble approach shows improvement\n")
+            else:
+                f.write("5. Ensemble performance similar to best single model\n")
 
-print("  ✓ Saved results/evaluation_report.txt")
+            # Inference time
+            total_time = metrics_summary['Ensemble']['avg_time']
+            f.write(f"6. Ensemble inference time: {total_time*1000:.2f}ms (real-time capable)\n")
 
-# PRINT SUMMARY TO TERMINAL
-print("\n" + "=" * 70)
-print("EVALUATION COMPLETE!")
-print("=" * 70)
+    f.write("\n" + "=" * 80 + "\n")
 
-print("\nRESULTS SUMMARY:")
-print("-" * 70)
-print(f"{'Model':<15} {'Accuracy':<12} {'Precision':<12} {'Recall':<12} {'F1-Score':<12}")
-print("-" * 70)
+print("    Saved: results/evaluation_report.txt")
 
-for model_name, metrics in metrics_summary.items():
-    print(f"{model_name:<15} "
-          f"{metrics['accuracy']*100:>10.2f}%  "
-          f"{metrics['precision']*100:>10.2f}%  "
-          f"{metrics['recall']*100:>10.2f}%  "
-          f"{metrics['f1']*100:>10.2f}%")
+# =============================================================================
+# SUMMARY
+# =============================================================================
 
-print("\n" + "=" * 70)
-print("GENERATED FILES:")
-print("-" * 70)
-print("  ✓ results/confusion_matrix_*.png (4 files)")
-print("  ✓ results/model_comparison_accuracy.png")
-print("  ✓ results/per_emotion_performance.png")
-print("  ✓ results/inference_time_comparison.png")
-print("  ✓ results/evaluation_report.txt")
-print("\nYou can now:")
-print("  1. View PNG files in Preview/Photos")
-print("  2. Read detailed report in evaluation_report.txt")
-print("  3. Include these in your presentation/paper")
-print("=" * 70 + "\n")
+print("\n" + "=" * 80)
+print("EVALUATION COMPLETE")
+print("=" * 80)
+print("\nGenerated Visualizations:")
+print("-" * 80)
+print("  Figure 1: results/figure1_voting_timeline.png")
+print("    - Ensemble voting behavior (first 100 samples)")
+print("  Figure 2: results/figure2_model_agreement.png")
+print("    - Model agreement analysis (all test data)")
+print("  Figure 3: results/figure3_model_comparison.png")
+print("    - Overall and per-class accuracy comparison")
+print("  Report: results/evaluation_report.txt")
+print("    - Complete metrics and findings")
+print("\nNote: FER was not evaluated as it requires image data, not landmarks.")
+print("=" * 80 + "\n")
 
+# Cleanup
 face_mesh.close()
