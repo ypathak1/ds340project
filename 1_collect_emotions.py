@@ -1,8 +1,8 @@
 """
-STEP 1: Collect Emotion Data - THREE WAYS!
-1. Live webcam collection (like before)
-2. Load images from folder (new!)
-3. Mix both (recommended!)
+STEP 1: Collect Emotion Data
+1. Live webcam collection
+2. Load images from folder
+3. Use both methods
 """
 
 import mediapipe as mp 
@@ -19,10 +19,10 @@ print("  1. LIVE: Use webcam (real-time)")
 print("  2. MANUAL: Load images from folder")
 print("  3. BOTH: Combine webcam + manual images")
 print("\nEmotions to collect:")
-print("  - happy (smile)")
-print("  - sad (frown)")
+print("  - happy")
+print("  - sad")
 print("  - neutral")
-print("  - angry (furrow)")
+print("  - angry")
 print()
 
 # Get emotion name
@@ -58,7 +58,7 @@ mp_drawing = mp.solutions.drawing_utils
 X = []
 data_size = 0
 
-# METHOD 1 or 3: WEBCAM COLLECTION
+# METHOD 1
 if method in ['1', '3']:
     print("\n" + "=" * 70)
     print("WEBCAM COLLECTION")
@@ -130,7 +130,7 @@ if method in ['1', '3']:
     
     print(f"\n[OK] Webcam collection complete: {webcam_count} samples")
 
-# METHOD 2 or 3: FOLDER COLLECTION
+# METHOD 2
 if method in ['2', '3']:
     print("\n" + "=" * 70)
     print("FOLDER COLLECTION")

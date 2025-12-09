@@ -33,17 +33,16 @@ except ImportError:
         FER = None
 
 print("=" * 70)
-print("GESTURE CALCULATOR - COMPLETE STACKING EDITION + GAME MODE")
+print("GESTURE CALCULATOR: ")
 print("=" * 70)
-print("\n🚀 ALL 4 MODELS STACKING TOGETHER:")
+print("\n ALL 4 MODELS:")
 print("  1. FER Pretrained (general emotions)")
 print("  2. Custom Model (YOUR face)")
 print("  3. MediaPipe Face (landmark emotions)")
 print("  4. MediaPipe Hands (finger counting)")
-print("\n✨ ENSEMBLE VOTING: All predictions combined!")
-print("✨ WORKS IMMEDIATELY: No training needed!")
-print("✨ LIVE TRAINING: Press H/S/N/A to add samples!")
-print("✨ GAME MODE: Press G to start challenge mode!")
+print("\n ENSEMBLE VOTING: All predictions combined!")
+print(" LIVE TRAINING: Press H/S/N/A to add samples!")
+print(" GAME MODE: Press G to start challenge mode!")
 print()
 
 # GAME MODE STATE
@@ -57,8 +56,8 @@ consecutive_correct = 0
 difficulty_level = 1
 game_high_score = 0
 game_round = 0
+challenge_answered = False
 
-# Load high score if exists
 if os.path.exists("highscore.txt"):
     try:
         with open("highscore.txt", "r") as f:
@@ -94,19 +93,18 @@ else:
     except:
         pass
 
-# LOAD ALL MODELS
-print("[INFO] Loading ALL models (no if statements)...")
+print("[INFO] Loading ALL models...")
 
-# MODEL 1: FER (downloads automatically if needed)
+# MODEL 1: FER
 fer_detector = None
 try:
-    print("  ⏳ Loading FER...")
+    print("  Loading FER...")
     fer_detector = FER(mtcnn=False)
-    print("  ✓ FER Pretrained active")
+    print("  FER Pretrained active")
 except:
-    print("  ⚠ FER unavailable (pip install fer)")
+    print("  FER unavailable (pip install fer)")
 
-# MODEL 2: Custom (loads if exists, creates placeholder if not)
+# MODEL 2: Custom User Trained Model
 custom_model = None
 custom_labels = np.array(['happy', 'sad', 'neutral', 'angry'])
 
@@ -114,13 +112,13 @@ if os.path.exists("custom_emotion_model.h5"):
     try:
         custom_model = load_model("custom_emotion_model.h5")
         custom_labels = np.load("custom_emotion_labels.npy")
-        print("  ✓ Custom Model active")
+        print("  Custom Model active")
     except:
-        print("  ⚠ Custom model file corrupted")
+        print("  Custom model file corrupted")
 else:
-    print("  ○ Custom Model not trained (will train when you add samples)")
+    print("  Custom Model not trained (will train when you add samples!)")
 
-# MODEL 3 & 4: MediaPipe (always available)
+# MODEL 3 & 4: MediaPipe
 mp_face_mesh = mp.solutions.face_mesh
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
@@ -140,10 +138,10 @@ hands = mp_hands.Hands(
     min_tracking_confidence=0.7
 )
 
-print("  ✓ MediaPipe Face active")
-print("  ✓ MediaPipe Hands active")
+print("  MediaPipe Face active")
+print("  MediaPipe Hands active")
 
-# MAPPINGS (ASCII SAFE)
+# MAPPINGS
 EMOTION_TO_OP = {
     'happy': ('*', lambda a, b: a * b, (0, 255, 0)),
     'sad': ('/', lambda a, b: a / b if b != 0 else 0, (255, 100, 100)),
@@ -167,7 +165,9 @@ def build_valid_targets():
             targets['neutral'].add(a + b)
             targets['angry'].add(a - b)
             if b != 0:
-                targets['sad'].add(round(a / b, 2))
+                div_result = a / b
+                if div_result == int(div_result) or div_result in {0.5, 1.5, 2.5, 3.5, 4.5}:
+                    targets['sad'].add(div_result if div_result == int(div_result) else div_result)
     return {k: sorted(list(v)) for k, v in targets.items()}
 
 VALID_TARGETS = build_valid_targets()
@@ -175,8 +175,8 @@ VALID_TARGETS = build_valid_targets()
 EASY_TARGETS = {
     'happy': [v for v in VALID_TARGETS['happy'] if v <= 12],
     'neutral': [v for v in VALID_TARGETS['neutral'] if v <= 8],
-    'angry': [v for v in VALID_TARGETS['angry'] if -4 <= v <= 4],
-    'sad': [v for v in VALID_TARGETS['sad'] if v in {0, 1, 2, 2.5, 3, 4, 5}]
+    'angry': [v for v in VALID_TARGETS['angry'] if -3 <= v <= 4],
+    'sad': [v for v in VALID_TARGETS['sad'] if v <= 5]
 }
 
 # MODEL 3: MediaPipe Landmark Emotion
@@ -267,7 +267,7 @@ def train_model_background():
     model.save("custom_emotion_model.h5")
     custom_model = model
     
-    print("[TRAIN] ✓ Done!")
+    print("[TRAIN] Complete! Nice work!")
     is_training = False
 
 # FINGER COUNTING
@@ -292,10 +292,6 @@ def count_fingers(hand_lm, hand_side):
 
 # ENSEMBLE: ALL MODELS VOTE
 def get_ensemble_emotion(frame, face_landmarks_list):
-    """
-    ALL 4 MODELS PREDICT SIMULTANEOUSLY
-    Returns: final_emotion, individual_predictions_dict
-    """
     votes = []
     predictions = {}
     
@@ -309,7 +305,7 @@ def get_ensemble_emotion(frame, face_landmarks_list):
                 mapped = FER_MAPPING.get(fer_emo, 'neutral')
                 predictions['FER'] = mapped
                 votes.append(mapped)
-        except:
+        except Exception as e:
             pass
     
     # Vote 2: Custom
@@ -378,7 +374,6 @@ def generate_challenge(difficulty):
 def check_game_answer(result, target, elapsed_time):
     """
     Check if answer is correct and calculate points
-    Returns: (is_correct, points_earned)
     """
     # Handle float comparison for division
     if isinstance(result, float) or isinstance(target, float):
@@ -412,19 +407,19 @@ def start_game():
     """Initialize new game"""
     global game_active, game_score, game_lives, consecutive_correct
     global game_target, game_operation, challenge_start_time, difficulty_level
-    global game_round
-    
+    global game_round, challenge_answered
+
     game_active = True
     game_score = 0
     game_lives = 3
     consecutive_correct = 0
     difficulty_level = 1
     game_round = 1
-    
-    # Generate first challenge
+    challenge_answered = False
+
     game_target, game_operation = generate_challenge(difficulty_level)
     challenge_start_time = time.time()
-    
+
     print("\n" + "=" * 70)
     print("GAME MODE STARTED!")
     print("=" * 70)
@@ -520,56 +515,46 @@ def log_metrics(fps, frame_time, cur_emo, cur_op, eq, preds):
         pass  # Don't crash if logging fails
 
 def draw_game_ui(frame, result, elapsed_time):
-    """Draw game overlay - ASCII SAFE VERSION"""
+    """Draw game overlay"""
     h, w, c = frame.shape
-    
-    # Top bar background
+
     cv2.rectangle(frame, (0, 0), (w, 100), (0, 0, 0), -1)
-    
-    # Score (ASCII only)
+
     cv2.putText(frame, f"SCORE: {game_score}", (20, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 3)
-    
-    # High score
+
     cv2.putText(frame, f"HIGH: {game_high_score}", (20, 85),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-    
-    # Lives (ASCII safe - no emoji)
+
     lives_text = f"LIVES: {game_lives}/3"
     cv2.putText(frame, lives_text, (w - 250, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
-    
-    # Timer
+
     time_left = max(0, 15 - int(elapsed_time))
     timer_color = (0, 255, 0) if time_left > 5 else (0, 165, 255) if time_left > 2 else (0, 0, 255)
     cv2.putText(frame, f"TIME: {time_left}s", (w//2 - 100, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, timer_color, 3)
-    
-    # Combo (ASCII safe)
+
     if consecutive_correct > 0:
         combo_text = f"COMBO x{consecutive_correct + 1}!"
         cv2.putText(frame, combo_text, (w//2 - 120, 85),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-    
-    # Target (BIG in center)
+
     target_text = f"TARGET: {game_target}"
     text_size = cv2.getTextSize(target_text, cv2.FONT_HERSHEY_SIMPLEX, 3, 8)[0]
     text_x = (w - text_size[0]) // 2
     text_y = h // 2 - 100
-    
-    # Target background
-    cv2.rectangle(frame, (text_x - 20, text_y - 80), 
+
+    cv2.rectangle(frame, (text_x - 20, text_y - 80),
                   (text_x + text_size[0] + 20, text_y + 20), (50, 50, 50), -1)
     cv2.putText(frame, target_text, (text_x, text_y),
                 cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 255), 8)
-    
-    # Your answer (below target)
+
     if result != "?":
         answer_text = f"Your Answer: {result}"
         cv2.putText(frame, answer_text, (text_x - 100, text_y + 80),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
-    
-    # Difficulty level
+
     cv2.putText(frame, f"Level: {difficulty_level}", (w - 250, 85),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
@@ -720,24 +705,21 @@ while True:
     # GAME MODE LOGIC
     if game_active and game_lives > 0:
         elapsed = time.time() - challenge_start_time
-        
-        # Draw game UI instead of normal UI
+
         draw_game_ui(frm, result, elapsed)
-        
-        # Check if answer is correct
-        if result != "?" and result != "Error":
+
+        if result != "?" and result != "Error" and not challenge_answered:
             try:
                 result_num = float(result)
                 is_correct, points = check_game_answer(result_num, game_target, elapsed)
-                
+
                 if is_correct:
-                    # Correct answer!
+                    challenge_answered = True
                     game_score += points
                     consecutive_correct += 1
-                    
+
                     print(f"CORRECT! +{points} points (Combo x{consecutive_correct})")
-                    
-                    # Update high score
+
                     if game_score > game_high_score:
                         game_high_score = game_score
                         try:
@@ -745,34 +727,35 @@ while True:
                                 f.write(str(game_high_score))
                         except:
                             pass
-                    
-                    # Increase difficulty every 5 correct
+
                     if consecutive_correct % 5 == 0:
                         difficulty_level += 1
                         print(f"Level Up! Difficulty: {difficulty_level}")
-                    
-                    # New challenge
-                    time.sleep(0.5)  # Brief pause to see success
+
+                    cv2.putText(frm, "CORRECT!", (w//2 - 150, h//2 + 150),
+                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5)
+                    cv2.imshow('Gesture Calculator', frm)
+                    cv2.waitKey(800)
+
                     game_round += 1
                     game_target, game_operation = generate_challenge(difficulty_level)
                     challenge_start_time = time.time()
+                    challenge_answered = False
             except:
                 pass
-        
-        # Check timeout
-        if elapsed > 15:  # 15 second timeout
+
+        if elapsed > 15:
             game_lives -= 1
-            consecutive_correct = 0  # Reset combo
-            
+            consecutive_correct = 0
+
             print(f"TIME'S UP! Lives left: {game_lives}")
-            
+
             if game_lives > 0:
-                # Generate new challenge
                 game_round += 1
                 game_target, game_operation = generate_challenge(difficulty_level)
                 challenge_start_time = time.time()
+                challenge_answered = False
             else:
-                # Game over - track statistics
                 games_played_total += 1
                 total_score_all_games += game_score
                 print(f"\nGAME OVER! Final Score: {game_score}")
@@ -853,7 +836,7 @@ while True:
         if not game_active or game_lives <= 0:
             start_game()
         else:
-            print("[INFO] Game already active!")
+            print("[INFO] Game already active! Wrong button?")
     
     # ESC exits game mode
     if key == 27:  # ESC
@@ -895,4 +878,4 @@ cv2.destroyAllWindows()
 cap.release()
 face_mesh.close()
 hands.close()
-print("\n[OK] Gesture calculator closed!\n")
+print("\n[OK] Gesture calculator closed! Thanks for playing!\n")

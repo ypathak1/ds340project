@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Enhanced Custom Emotion Model Training Script
-With proper model saving for team collaboration via git repo
+Emotion Model Training Script
 """
 
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
 import os
 from pathlib import Path
 import shutil
@@ -17,7 +17,7 @@ try:
     from model_saver import ModelSaver
     USE_MODEL_SAVER = True
 except ImportError:
-    print("⚠️ model_saver.py not found - will use basic saving")
+    print("model_saver.py not found!")
     USE_MODEL_SAVER = False
 
 print("=" * 70)
@@ -60,21 +60,21 @@ for idx, emotion in enumerate(LABELS):
     filepath = DATA_DIR / filename
     
     if not filepath.exists():
-        print(f"⚠️  Warning: {filename} not found - skipping {emotion}")
+        print(f"Warning: {filename} not found - skipping {emotion}")
         continue
     
     try:
         samples = np.load(str(filepath))
-        print(f"✓ Loaded {len(samples):3d} samples for '{emotion}'")
+        print(f"Loaded {len(samples):3d} samples for '{emotion}'")
         
         X_data.append(samples)
         y_data.extend([idx] * len(samples))
         
     except Exception as e:
-        print(f"❌ Error loading {filename}: {e}")
+        print(f" Error loading {filename}: {e}")
 
 if not X_data:
-    print("\n❌ ERROR: No training data found!")
+    print("\nERROR: No training data found!")
     print("\nPlease collect training data first:")
     print("  python 1_collect_emotions.py")
     exit(1)
@@ -89,11 +89,23 @@ print(f"  Features: {X.shape[1]}")
 print(f"  Classes: {len(LABELS)}")
 
 # Check for class imbalance
-print(f"\n📈 Class Distribution:")
+print(f"\nClass Distribution:")
 for idx, emotion in enumerate(LABELS):
     count = np.sum(y == idx)
     percentage = (count / len(y)) * 100
     print(f"  {emotion:8s}: {count:3d} samples ({percentage:5.1f}%)")
+
+# Compute class weights to handle imbalance
+class_weights_array = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y),
+    y=y
+)
+class_weights = {i: class_weights_array[i] for i in range(len(class_weights_array))}
+
+print(f"\n Class Weights (for balancing):")
+for idx, emotion in enumerate(LABELS):
+    print(f"  {emotion:8s}: {class_weights[idx]:.3f}")
 
 # ==============================================================================
 # TRAIN-TEST SPLIT
@@ -153,7 +165,7 @@ print("\n" + "-" * 70)
 print("Training Model")
 print("-" * 70)
 
-# Early stopping to prevent overfitting
+# To prevent overfitting, use early stopping
 early_stopping = keras.callbacks.EarlyStopping(
     monitor='val_loss',
     patience=10,
@@ -168,6 +180,7 @@ history = model.fit(
     epochs=EPOCHS,
     validation_data=(X_val, y_val),
     callbacks=[early_stopping],
+    class_weight=class_weights,
     verbose=1
 )
 
@@ -187,9 +200,8 @@ print(f"Validation Accuracy: {val_acc:.2%}")
 print(f"Training Loss:       {train_loss:.4f}")
 print(f"Validation Loss:     {val_loss:.4f}")
 
-# Check for overfitting
 if train_acc - val_acc > 0.15:
-    print("\n⚠️  Warning: Possible overfitting detected")
+    print("\n Warning: Overfitting potentially detected")
     print("   (Training accuracy significantly higher than validation)")
 
 # ==============================================================================
@@ -222,11 +234,7 @@ if USE_MODEL_SAVER:
         notes=notes
     )
     
-    print("\n✅ Model saved with ModelSaver utility")
-    print("   - Automatic backup created")
-    print("   - Metadata logged")
-    print("   - Files validated")
-    print("   - Ready to commit to git!")
+    print("\n Model saved with model_saver.py")
     
     # Maintain compatibility with existing pipeline (expects root-level files)
     try:
@@ -234,14 +242,14 @@ if USE_MODEL_SAVER:
         shutil.copy2("models/custom_emotion_labels.npy", "custom_emotion_labels.npy")
         print("\n📦 Copied model files to project root for calculator compatibility.")
     except Exception as copy_err:
-        print(f"\n⚠️  Warning: Could not copy model files to root directory: {copy_err}")
+        print(f"\n Warning: Could not copy model files to root directory: {copy_err}")
 
 else:
     # Fallback to basic saving
     model.save('custom_emotion_model.h5')
     np.save('custom_emotion_labels.npy', LABELS)
     
-    print("\n✅ Model saved (basic mode)")
+    print("\n Model saved (basic mode)")
     print("   custom_emotion_model.h5")
     print("   custom_emotion_labels.npy")
 
@@ -254,7 +262,7 @@ print("RECOMMENDATIONS")
 print("=" * 70)
 
 if val_acc < 0.7:
-    print("\n⚠️  Validation accuracy is below 70%")
+    print("\n Validation accuracy is below 70%")
     print("\nSuggestions to improve:")
     print("  1. Collect more training samples (aim for 100+ per emotion)")
     print("  2. Ensure balanced data across all emotions")
@@ -269,33 +277,20 @@ elif val_acc < 0.85:
     print("  3. Vary facial angles slightly")
 
 else:
-    print("\n✅ Excellent model performance!")
+    print("\n Excellent model performance!")
     print(f"\nYour model achieved {val_acc:.2%} validation accuracy")
     print("This should work well in the real-time calculator!")
 
-# Training data recommendations
-total_samples = len(X)
-if total_samples < 200:
-    print(f"\n💡 Data collection tip:")
-    print(f"   You have {total_samples} total samples")
-    print(f"   Aim for at least 50-100 samples per emotion (200-400 total)")
-    print(f"   This will significantly improve model reliability")
 
 # Class balance check
 for idx, emotion in enumerate(LABELS):
     count = np.sum(y == idx)
     if count < 30:
-        print(f"\n⚠️  Low sample count for '{emotion}': only {count} samples")
-        print(f"   Collect at least 20 more samples for better performance")
+        print(f"\n  Low sample count for '{emotion}': only {count} samples")
+        print(f"   Collect at least 20 more samples for better performance...")
 
 print("\n" + "=" * 70)
 print("TRAINING COMPLETE!")
 print("=" * 70)
 print("\nNext steps:")
-print("  1. Test the model in the calculator:")
-print("     python 4_run_calculator_with_game.py")
-print("  2. If performance is good, commit to git:")
-print("     git add models/")
-print("     git commit -m 'Updated custom emotion model'")
-print("     git push")
-print()
+print("  1. Test the model in the calculator! Thanks for training :)")

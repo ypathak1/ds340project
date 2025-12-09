@@ -1,7 +1,6 @@
 """
 STEP 2: Test MediaPipe Hand Counting
-MediaPipe automatically counts fingers - no training needed!
-This verifies it works on your system.
+MediaPipe automatically counts fingers
 """
 
 import mediapipe as mp
@@ -11,8 +10,6 @@ import time
 print("=" * 70)
 print("STEP 2: MEDIAPIPE HAND COUNTING TEST")
 print("=" * 70)
-print("\n✨ MediaPipe can count fingers automatically!")
-print("No training data needed for hands!\n")
 
 # Initialize MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -36,7 +33,7 @@ def count_fingers(hand_landmarks, handedness):
     
     fingers_up = 0
     
-    # Thumb (check based on hand side)
+    # Thumb, check based on hand side
     is_right_hand = handedness.classification[0].label == "Right"
     
     if is_right_hand:
