@@ -6,7 +6,7 @@
 
    What you'll find here
 
-   - Small scripts to collect data, test hands, train, and run the demo: `1_collect_emotions.py`, `2_test_hands.py`, `3_train_emotions.py`, `4_run_calculator.py`, and helpers.
+   - Small scripts to collect data, test hands, train, and run the demo: `1_collect_emotions.py`, `2_test_hands.py`, `3_train_emotions.py`, `4_run_calculator_with_game.py`, and helpers.
    - Documentation files: `PROJECT_DOCUMENTATION.md`, `README_FINAL.md`.
    - A `requirements.txt` that lists the Python dependencies.
 
