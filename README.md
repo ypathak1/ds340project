@@ -1,21 +1,20 @@
 # GESTURE + EMOTION CALCULATOR
 
-   # Facial Operator — demo and data collector
+   # Facial Operator
 
-   This repo contains a compact demo that uses MediaPipe for face and hand landmarks and a small, easy-to-read pipeline to recognize simple expressions and finger counts. The demo is intended to be understandable and easy to run on a laptop camera.
 
    What you'll find here
 
-   - Small scripts to collect data, test hands, train, and run the demo: `1_collect_emotions.py`, `2_test_hands.py`, `3_train_emotions.py`, `4_run_calculator_with_game.py`, and helpers.
-   - Documentation files: `PROJECT_DOCUMENTATION.md`, `README_FINAL.md`.
+   - Scripts to collect data, test hands, train, and run the demo: `1_collect_emotions.py`, `2_test_hands.py`, `3_train_emotions.py`, `4_run_calculator_with_game.py`, and helpers.
+   - Documentation files: `README_FINAL.md`.
    - A `requirements.txt` that lists the Python dependencies.
 
    How to start
 
-   1. Create and activate a virtual environment:
+   1. Create and activate a virtual environment (requires Python 3.11.14):
 
    ```bash
-   python3 -m venv .venv
+   python3.11 -m venv .venv
    source .venv/bin/activate
    ```
 
@@ -31,16 +30,16 @@
    python3 4_run_calculator.py
    ```
 
-   The demo opens a window showing the camera feed. Use your left hand to enter the first number (0–5 fingers), make a face to select an operator, and use your right hand to enter the second number.
+   The demo opens a window showing the camera feed. Use your left hand to enter the first number, make a face to use an operator, and use your right hand to enter the second number!
 
    Controls
 
-   - `Q`: quit
-   - `H`, `S`, `N`, `A`: add labeled samples (happy, sad, neutral, angry)
-   - `T`: train the classifier on collected samples
+   - `Q` or 'esc' : Quit
+   - `H`, `S`, `N`, `A`: Add labeled samples (happy, sad, neutral, angry)
+   - `T`: Train the classifier on collected samples
 
    Notes and tips
 
    - Good lighting and a steady camera make the demo more reliable.
-   - The operator detector is intentionally rule-based so you can see how it works and change it easily.
-   - Collect several samples per expression before training to improve the learned model.
+   - Make exaggerated facial expressions! Have some fun with it.
+   - Collect several samples per expression before training to improve the learned model. 
