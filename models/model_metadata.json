@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-12-08T20:56:17.012824",
+  "labels": [
+    "happy",
+    "sad",
+    "neutral",
+    "angry"
+  ],
+  "notes": "Trained on 2270 samples with 4 emotions. Final validation accuracy: 56.61%. Architecture: [512, 256, 128]. ",
+  "model_path": "models/custom_emotion_model.h5",
+  "labels_path": "models/custom_emotion_labels.npy",
+  "training_history": {
+    "final_accuracy": 0.42455947399139404,
+    "final_loss": 1.3984323740005493,
+    "epochs": 50
+  }
+}

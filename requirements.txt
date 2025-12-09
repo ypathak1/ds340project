@@ -3,6 +3,7 @@ opencv-python>=4.8.0
 numpy>=1.24.0,<2.0.0
 tensorflow-macos>=2.13.0
 tensorflow-metal>=1.0.0
+hsemotion>=0.2.0
 fer==22.5.0
 keras>=2.13.0
 matplotlib>=3.7.0

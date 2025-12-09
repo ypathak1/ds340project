@@ -2,15 +2,6 @@
 """
 Model Saving and Loading Utilities for DS340 Project
 Ensures models are properly saved for team collaboration via repo
-
-This module provides robust saving/loading with:
-- Automatic backup of previous models
-- Timestamp tracking
-- Validation after saving
-- Error handling
-
-Author: Jennifer Ji, Yana Pathak
-Course: DS340
 """
 
 import os
@@ -215,12 +206,6 @@ saver.save_model(
     training_history=history,  # from model.fit()
     notes="Trained on balanced dataset with 100 samples per emotion"
 )
-
-# Now the model is saved with:
-# - Automatic backup of previous version
-# - Metadata (timestamp, accuracy, etc.)
-# - Validation to ensure files are correct
-# - Ready to commit to repo!
 '''
     
     print(example_code)

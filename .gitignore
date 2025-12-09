@@ -10,9 +10,6 @@ __pycache__/
 data/
 checkpoints/
 checkpoints_smoke/
-models/
-custom_emotion_model.h5
-custom_emotion_labels.npy
 emotion_*.npy
 figures/
 results/

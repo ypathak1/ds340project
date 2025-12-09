@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
 """
 Complete Figure Generation Script for DS340 Project Paper
-Creates publication-ready figures with consistent styling
-
-Author: Jennifer Ji, Yana Pathak
-Course: DS340
-Date: December 2024
-
-Usage: python generate_paper_figures.py
-Output: figures/ directory with all paper figures
 """
 
 import json
