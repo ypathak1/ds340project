@@ -3,13 +3,13 @@
    # Facial Operator
 
 
-   What you'll find here
+   ### What you'll find in our repo:
 
    - Scripts to collect data, test hands, train, and run the demo: `1_collect_emotions.py`, `2_test_hands.py`, `3_train_emotions.py`, `4_run_calculator_with_game.py`, and helpers.
    - Documentation files: `README_FINAL.md`.
    - A `requirements.txt` that lists the Python dependencies.
 
-   How to start
+   #### How to start
 
    1. Create and activate a virtual environment (requires Python 3.11.14):
 
@@ -24,7 +24,7 @@
    pip install -r requirements.txt
    ```
 
-   3. Run the demo:
+   3. Run the game:
 
    ```bash
    python3 4_run_calculator.py
@@ -39,7 +39,7 @@
    - `T`: Train the classifier on collected samples
    - `G`: Start the game
 
-   Game Mode
+   #### Game Mode
 
    Press `G` to play the math challenge game! You get 15 seconds to solve each problem and have 3 lives.
 
@@ -59,7 +59,7 @@
    - If time runs out or you get it wrong, you lose a life and your combo resets D:
    - Game over when you run out of lives.
 
-   Notes and tips: 
-   - Good lighting and a steady camera make the demo more reliable.
+   #### Notes and tips: 
+   - Good lighting and a steady camera make the game more reliable.
    - Make exaggerated facial expressions! Have some fun with it.
    - Collect several samples per expression before training to improve the learned model. 
